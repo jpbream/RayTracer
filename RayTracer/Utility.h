@@ -52,6 +52,47 @@ inline float HAdd8(__m256 avx)
 }
 
 template <class FloatType>
+FloatType BarycentricLerp(const FloatType& p1, const FloatType& p2, const FloatType& p3, float u, float v)
+{
+
+	constexpr short NUMFLOATS = sizeof(FloatType) / sizeof(float);
+	float alignas(32) buf[NUMFLOATS];
+
+	if constexpr ( NUMFLOATS % 8 == 0 ) {
+
+		__m256 vecU = _mm256_set1_ps(u);
+		__m256 vecV = _mm256_set1_ps(v);
+		__m256 vecW = _mm256_set1_ps(1 - u - v);
+
+		for ( int i = 0; i < NUMFLOATS / 8; ++i ) {
+
+			__m256 vec1 = _mm256_load_ps((float*)&p1 + i * 8);
+			__m256 vec2 = _mm256_load_ps((float*)&p2 + i * 8);
+			__m256 vec3 = _mm256_load_ps((float*)&p3 + i * 8);
+
+			vec1 = _mm256_mul_ps(vec1, vecU);
+			vec2 = _mm256_mul_ps(vec2, vecV);
+			vec3 = _mm256_mul_ps(vec3, vecW);
+
+			__m256 result = _mm256_add_ps(vec1, vec2);
+			result = _mm256_add_ps(result, vec3);
+
+			_mm256_store_ps(buf + i * 8, result);
+		}
+	}
+	else {
+
+		float w = 1 - u - v;
+
+		for ( int i = 0; i < NUMFLOATS; ++i )
+			buf[i] = *((float*)&p1 + i) * u + *((float*)&p2 + i) * v + *((float*)&p3 + i) * w;
+	}
+
+	return *(FloatType*)buf;
+
+}
+
+template <class FloatType>
 FloatType Lerp(const FloatType& p1, const FloatType& p2, float alpha)
 {
 
