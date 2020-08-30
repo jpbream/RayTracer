@@ -68,6 +68,8 @@ public:
 
 };
 
+Vec4 operator/(float f, const Vec4& v);
+
 std::ostream& operator<<(std::ostream& os, const Vec4& v);
 
 

@@ -45,5 +45,7 @@ public:
 
 };
 
+Vec2 operator/(float f, const Vec2& v);
+
 std::ostream& operator<<(std::ostream& os, const Vec2& v);
 

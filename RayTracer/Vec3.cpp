@@ -160,6 +160,11 @@ void Vec3::Clamp()
 		z = 1;
 }
 
+Vec3 operator/(float f, const Vec3& v)
+{
+	return { f / v.x, f / v.y, f / v.z };
+}
+
 std::ostream& operator<<(std::ostream& os, const Vec3& v) {
 
 	os << "[ " << v.x << " " << v.y << " " << v.z << " ]";

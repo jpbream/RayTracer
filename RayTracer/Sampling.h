@@ -9,6 +9,3 @@ Vec4 LinearSample(const Surface& texture, const Vec2& texel);
 Vec4 BiLinearSample(const Surface& texture, const Vec2& texel);
 
 Vec4 SampleCubeMap(const Surface* planes, const Vec3& dir);
-
-
-

@@ -168,6 +168,11 @@ void Vec4::Clamp()
 		w = 1;
 }
 
+Vec4 operator/(float f, const Vec4& v)
+{
+	return { f / v.x, f / v.y, f / v.z, f / v.w };
+}
+
 std::ostream& operator<<(std::ostream& os, const Vec4& v) {
 
 	os << "[ " << v.x << " " << v.y << " " << v.z << " " << v.w << " ]";

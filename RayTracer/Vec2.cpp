@@ -96,6 +96,11 @@ Vec2 Vec2::Normalized() const {
 	return *this * (1 / Length());
 }
 
+Vec2 operator/(float f, const Vec2& v)
+{
+	return { f / v.x, f / v.y };
+}
+
 std::ostream& operator<<(std::ostream& os, const Vec2& v) {
 
 	os << "[ " << v.x << " " << v.y << " ]";

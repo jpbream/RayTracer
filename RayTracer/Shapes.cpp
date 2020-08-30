@@ -2,6 +2,7 @@
 #include "Mat4.h"
 
 #include <assert.h>
+#include <immintrin.h>
 
 #define PI 3.14159265358979323846
 
@@ -28,17 +29,13 @@ static bool TestIntersectConvexPolygon(const Ray* ray, int nVertices, ...)
 
 	Vec3 norm = ((*v2 - *v1) % (*v3 - *v1)).Normalized();
 
-	// the distance along the normal the plane of the shape
-	// is from the origin
-	float d = norm * *v1;
-
 	// if the ray is perpendicular to the normal, it is not a hit
 	if ( norm * ray->direction == 0 )
 		return false;
 
 	// the distance from the rays origin to its intersection
 	// with the plane
-	float t = (norm * ray->origin + d) / (norm * ray->direction);
+	float t = (*v1 - ray->origin) * norm / (norm * ray->direction);
 
 	// if the intersection is behind the ray, ignore it
 	if ( t < 0 )

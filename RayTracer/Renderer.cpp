@@ -17,7 +17,7 @@ int Renderer::RayTracer::RecursionLevel() const
 }
 
 void Renderer::AddModelToScene(void* modelThis, int nTriangles, int* pIndices, int nVertices, void* pVertices, int positionFloatOffset, int vertexSize,
-	 ClosestHitShader pClosestHit, bool backfaceCull)
+	 ClosestHitShader pClosestHit, BoundingVolumeTest pBoundingVolumeTest, bool backfaceCull)
 {
 	ModelDescriptor md = {};
 	md.thisPtr = modelThis;
@@ -28,6 +28,7 @@ void Renderer::AddModelToScene(void* modelThis, int nTriangles, int* pIndices, i
 	md.vertexSize = vertexSize;
 	md.positionFloatOffset = positionFloatOffset;
 	md.pClosestHitShader = pClosestHit;
+	md.pBoundingVolumeTest = pBoundingVolumeTest;
 	md.backfaceCull = backfaceCull;
 
 	modelStorage.push_back(md);
@@ -56,13 +57,21 @@ void Renderer::RenderScene(Surface* pRenderTarget, RayGenerationShader pRayGen, 
 
 	std::vector<std::thread> threads;
 
-	// don't start new threads if each thread would get
-	// less than 1 pixel
+	// create all the worker ranges before
+	// starting the threads
 	if ( numPixels > numThreads )
 		for ( int start = 0; start < newThreadEnd; start += span )
-			threads.emplace_back(&Renderer::RenderThread, this, start, span);
+			workers.push_back({ start, start + span });
+	workers.push_back({ newThreadEnd, numPixels - newThreadEnd });
 
-	RenderThread(newThreadEnd, numPixels - newThreadEnd);
+	// don't start new threads if each thread would get
+	// less than 1 pixel
+	int numWorkers = 0;
+	if ( numPixels > numThreads )
+		for ( int start = 0; start < newThreadEnd; start += span )
+			threads.emplace_back(&Renderer::RenderThread, this, numWorkers++);
+
+	RenderThread(numWorkers);
 
 	for ( std::thread& thread : threads )
 		thread.join();
@@ -71,47 +80,73 @@ void Renderer::RenderScene(Surface* pRenderTarget, RayGenerationShader pRayGen, 
 	this->pMissShader = nullptr;
 	this->pRenderTarget = nullptr;
 
+	workers.clear();
+
 }
 
-void Renderer::RenderThread(int start, int span)
+void Renderer::RenderThread(int threadIdx)
 {
-
 	int width = pRenderTarget->GetWidth();
 	int height = pRenderTarget->GetHeight();
 
-	for ( int p = start; p < start + span; ++p ) {
+	WorkerRange* volatile range = &workers[threadIdx];
 
-		// get the pixel coordinates on the screen
-		int px = p % width;
-		int py = p / width;
+#ifdef THREAD_SWITCHING
+	while ( range->start < range->end ) {
+#endif
 
-		Vec2 center((float)px + 0.5f * RESOLUTION, (float)py + 0.5f * RESOLUTION);
+		for ( ; range->start < range->end; range->start++ ) {
 
-		float centerXStart = center.x;
-		float centerInc = 1.0f / RESOLUTION;
-	
-		Vec3 accumAvg;
+			int p = range->start;
 
-		for ( int i = 0; i < RESOLUTION; ++i ) {
-			for ( int j = 0; j < RESOLUTION; ++j ) {
+			// get the pixel coordinates on the screen
+			int px = p % width;
+			int py = p / width;
 
-				Ray ray = pRayGen(center.x, center.y, width, height);
-				RayTracer rayTracer(this);
-				Payload result = TraceRay(ray, rayTracer);
+			Vec2 center((float)px + 0.5f * RESOLUTION, (float)py + 0.5f * RESOLUTION);
 
-				accumAvg += result.color;
-				center.x += centerInc;
+			float centerXStart = center.x;
+			float centerInc = 1.0f / RESOLUTION;
+
+			Vec3 accumAvg;
+
+			for ( int i = 0; i < RESOLUTION; ++i ) {
+				for ( int j = 0; j < RESOLUTION; ++j ) {
+
+					Ray ray = pRayGen(center.x, center.y, width, height);
+					RayTracer rayTracer(this);
+					Payload result = TraceRay(ray, rayTracer);
+
+					accumAvg += result.color;
+					center.x += centerInc;
+				}
+
+				center.x = centerXStart;
+				center.y += centerInc;
 			}
 
-			center.x = centerXStart;
-			center.y += centerInc;
+			accumAvg /= (RESOLUTION * RESOLUTION);
+
+			pRenderTarget->PutPixel(px, py, accumAvg);
 		}
 
-		accumAvg /= (RESOLUTION * RESOLUTION);
+#ifdef THREAD_SWITCHING
 
-		pRenderTarget->PutPixel(px, py, accumAvg);
+		// try to find another unfinished thread
+		for ( int i = 0; i < workers.size(); ++i ) {
+			if ( workers[i].start < workers[i].end ) {
+
+				// take the second half of that threads load
+				range->start = (workers[i].start + workers[i].end) / 2;
+				range->end = workers[i].end;
+
+				workers[i].end = range->start;
+				break;
+
+			}
+		}
 	}
-
+#endif
 }
 
 Renderer::RayTracer::RayTracer(Renderer* renderer)
@@ -143,6 +178,18 @@ Payload Renderer::TraceRay(const Ray& ray, RayTracer& rayTracer)
 
 	ModelDescriptor* closestHit = nullptr;
 	TriangleIntersection closestIntersection;
+
+#ifdef BOUNDING_BOX_TEST
+	bool foundHit = false;
+	for ( ModelDescriptor& model : modelStorage ) {
+		if ( model.pBoundingVolumeTest(model.thisPtr, ray) ) {
+			foundHit = true;
+			break;
+		}
+	}
+	if ( !foundHit )
+		return pMissShader(ray);
+#endif
 
 	// run the closest hit shader of the nearest object
 	// if there is no nearest object, run the ray tracers miss shader

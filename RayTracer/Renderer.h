@@ -6,6 +6,8 @@
 #include <unordered_map>
 
 #define RESOLUTION 1
+#define BOUNDING_BOX_TEST
+#define THREAD_SWITCHING
 
 class Payload;
 
@@ -44,6 +46,8 @@ public:
 	typedef Payload (*ClosestHitShader)(void* thisPtr, Renderer::RayTracer& rayTracer, const Ray& ray, const TriangleIntersection& intersection);
 	typedef Payload (*MissShader)(const Ray& ray);
 
+	typedef bool (*BoundingVolumeTest)(void* thisPtr, const Ray& ray);
+
 private:
 	MissShader pMissShader;
 	RayGenerationShader pRayGen;
@@ -64,6 +68,7 @@ private:
 		int positionFloatOffset;
 
 		ClosestHitShader pClosestHitShader;
+		BoundingVolumeTest pBoundingVolumeTest;
 
 		bool backfaceCull;
 	};
@@ -107,7 +112,14 @@ private:
 	SceneOctTree octTree;
 	std::vector<ModelDescriptor> modelStorage;
 
-	void RenderThread(int start, int span);
+	struct WorkerRange {
+		volatile int start;
+		volatile int end;
+	};
+
+	std::vector<WorkerRange> workers;
+
+	void RenderThread(int threadIdx);
 	Payload TraceRay(const Ray& ray, RayTracer& rayTracer);
 
 	static bool IntersectTriangle(const Ray& ray, const Vec3& v1, const Vec3& v2, const Vec3& v3, TriangleIntersection& outIntersection);
@@ -115,7 +127,7 @@ private:
 public:
 
 	void AddModelToScene(void* modelThis, int nTriangles, int* pIndices, int nVertices, void* pVertices, int positionFloatOffset, int vertexSize,
-		 ClosestHitShader pClosestHit, bool backfaceCull);
+		 ClosestHitShader pClosestHit, BoundingVolumeTest pBoundingVolumeTest, bool backfaceCull);
 
 	void ClearScene();
 

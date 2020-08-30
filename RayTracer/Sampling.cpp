@@ -21,7 +21,6 @@ Vec4 LinearSample(const Surface& texture, const Vec2& texel)
 
 Vec4 BiLinearSample(const Surface& texture, const Vec2& texel)
 {
-
 	// Equations for a Bi Linear Sample
 	// From Section 7.5.4, "Mathematics for 3D Game Programming and Computer Graphics", Lengyel
 
