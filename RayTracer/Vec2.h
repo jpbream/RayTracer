@@ -41,6 +41,8 @@ public:
 	float Length() const;
 	Vec2 Normalized() const;
 
+	static Vec2 Lerp(const Vec2& start, const Vec2& end, float alpha);
+
 };
 
 std::ostream& operator<<(std::ostream& os, const Vec2& v);

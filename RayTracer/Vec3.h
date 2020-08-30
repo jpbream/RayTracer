@@ -54,6 +54,7 @@ public:
 	Vec3 Refract(const Vec3& normal, float n1, float n2) const;
 
 	static Vec3 Modulate(const Vec3& v1, const Vec3& v2);
+	static Vec3 Lerp(const Vec3& start, const Vec3& end, float alpha);
 
 	Vec4 Vec4() const;
 	void Clamp();

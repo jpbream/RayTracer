@@ -82,6 +82,11 @@ Vec2 Vec2::operator-() const {
 
 }
 
+Vec2 Vec2::Lerp(const Vec2& start, const Vec2& end, float alpha)
+{
+	return start * (1 - alpha) + end * alpha;
+}
+
 float Vec2::Length() const {
 
 	return sqrtf(x * x + y * y);

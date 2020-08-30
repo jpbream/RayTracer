@@ -134,6 +134,11 @@ Vec3 Vec3::Modulate(const Vec3& v1, const Vec3& v2) {
 	return { v1.r * v2.r, v1.g * v2.g, v1.b * v2.b };
 }
 
+Vec3 Vec3::Lerp(const Vec3& start, const Vec3& end, float alpha)
+{
+	return start * (1 - alpha) + end * alpha;
+}
+
 Vec4 Vec3::Vec4() const {
 	return { x, y, z, 1 };
 }

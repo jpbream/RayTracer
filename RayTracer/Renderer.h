@@ -16,35 +16,28 @@ struct TriangleIntersection {
 	float u;
 	float v;
 
-	bool fromBack;
 	float distance;
 };
 
-typedef bool (*IntersectBoundingVolume)(void* thisPtr, const Ray& ray);
-
 class Renderer
 {
-
 	friend class RayTracer;
-
 public:
 
 	class RayTracer {
-
 		friend class Renderer;
 
 	private:
-
 		int traceCount;
 		static const int MAX_TRACE = 5;
 
 		Renderer* renderer;
 
 	public:
-
 		RayTracer(Renderer* renderer);
 		Payload TraceRay(const Ray& ray);
 
+		int RecursionLevel() const;
 	};
 
 	typedef Ray (*RayGenerationShader)(float px, float py, int displayWidth, int displayHeight);
@@ -52,13 +45,11 @@ public:
 	typedef Payload (*MissShader)(const Ray& ray);
 
 private:
-
 	MissShader pMissShader;
 	RayGenerationShader pRayGen;
 	Surface* pRenderTarget;
 
-	class ModelDescriptor {
-		
+	class ModelDescriptor {	
 		// use this to get the default copy constructor
 		friend class Renderer;
 
@@ -72,15 +63,13 @@ private:
 		int vertexSize;
 		int positionFloatOffset;
 
-		IntersectBoundingVolume pIntersectBoundingVolume;
 		ClosestHitShader pClosestHitShader;
 
+		bool backfaceCull;
 	};
 
 	class SceneOctTree {
-
 	private:
-
 		static constexpr int DEPTH = 6;
 
 		class SceneOctTreeNode {
@@ -106,7 +95,6 @@ private:
 		SceneOctTreeNode* FindBoxContainingTriangle(const Triangle& t);
 
 	public:
-
 		SceneOctTree();
 		~SceneOctTree();
 
@@ -127,7 +115,7 @@ private:
 public:
 
 	void AddModelToScene(void* modelThis, int nTriangles, int* pIndices, int nVertices, void* pVertices, int positionFloatOffset, int vertexSize,
-		IntersectBoundingVolume pIntersectBoundingVolume, ClosestHitShader pClosestHit);
+		 ClosestHitShader pClosestHit, bool backfaceCull);
 
 	void ClearScene();
 
@@ -135,17 +123,9 @@ public:
 
 };
 
-class Payload {
+struct Payload {
 
-	friend class Renderer::RayTracer;
-
-private:
-	bool valid;
-
-public:
 	Vec3 color;
 
-	Payload();
-	bool IsValid() const;
 };
 

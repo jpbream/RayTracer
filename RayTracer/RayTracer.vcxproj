@@ -176,6 +176,7 @@
     <ClCompile Include="Mat3.cpp" />
     <ClCompile Include="Mat4.cpp" />
     <ClCompile Include="Renderer.cpp" />
+    <ClCompile Include="Sampling.cpp" />
     <ClCompile Include="Shapes.cpp" />
     <ClCompile Include="Surface.cpp" />
     <ClCompile Include="Test.cpp" />
@@ -192,6 +193,7 @@
     <ClInclude Include="Mat3.h" />
     <ClInclude Include="Mat4.h" />
     <ClInclude Include="Renderer.h" />
+    <ClInclude Include="Sampling.h" />
     <ClInclude Include="Shapes.h" />
     <ClInclude Include="Surface.h" />
     <ClInclude Include="Utility.h" />

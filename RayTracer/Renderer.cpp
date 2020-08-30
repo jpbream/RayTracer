@@ -11,22 +11,14 @@
 
 #define MIN_INTERSECTION_DISTANCE 0.00001
 
-#define TREE
-
-Payload::Payload()
-	:
-	valid(true)
+int Renderer::RayTracer::RecursionLevel() const
 {
-}
-bool Payload::IsValid() const
-{
-	return valid;
+	return traceCount;
 }
 
 void Renderer::AddModelToScene(void* modelThis, int nTriangles, int* pIndices, int nVertices, void* pVertices, int positionFloatOffset, int vertexSize,
-	IntersectBoundingVolume pIntersectBoundingVolume, ClosestHitShader pClosestHit)
+	 ClosestHitShader pClosestHit, bool backfaceCull)
 {
-
 	ModelDescriptor md = {};
 	md.thisPtr = modelThis;
 	md.nTriangles = nTriangles;
@@ -35,16 +27,13 @@ void Renderer::AddModelToScene(void* modelThis, int nTriangles, int* pIndices, i
 	md.pVertices = pVertices;
 	md.vertexSize = vertexSize;
 	md.positionFloatOffset = positionFloatOffset;
-	md.pIntersectBoundingVolume = pIntersectBoundingVolume;
 	md.pClosestHitShader = pClosestHit;
+	md.backfaceCull = backfaceCull;
 
 	modelStorage.push_back(md);
 
-#ifdef TREE
 	ModelDescriptor* model = &modelStorage[modelStorage.size() - 1];
 	octTree.AddModelToTree(model);
-#endif
-
 }
 
 void Renderer::RenderScene(Surface* pRenderTarget, RayGenerationShader pRayGen, MissShader pMissShader)
@@ -59,19 +48,19 @@ void Renderer::RenderScene(Surface* pRenderTarget, RayGenerationShader pRayGen, 
 	this->pMissShader = pMissShader;
 	this->pRenderTarget = pRenderTarget;
 
-	static int numThreads = std::thread::hardware_concurrency() - 1;
+	static int numThreads = (std::thread::hardware_concurrency() - 1);
 	int numPixels = pRenderTarget->GetWidth() * pRenderTarget->GetHeight();
 
-	// in case the image has less than 12 pixels
-	if ( numPixels < numThreads )
-		return;
-
-	int span = numPixels / numThreads;
+	int span = numThreads > 0 ? numPixels / numThreads : 0;
 	int newThreadEnd = span * numThreads;
 
 	std::vector<std::thread> threads;
-	for ( int start = 0; start < newThreadEnd; start += span )
-		threads.emplace_back(&Renderer::RenderThread, this, start, span);
+
+	// don't start new threads if each thread would get
+	// less than 1 pixel
+	if ( numPixels > numThreads )
+		for ( int start = 0; start < newThreadEnd; start += span )
+			threads.emplace_back(&Renderer::RenderThread, this, start, span);
 
 	RenderThread(newThreadEnd, numPixels - newThreadEnd);
 
@@ -134,17 +123,15 @@ Renderer::RayTracer::RayTracer(Renderer* renderer)
 
 Payload Renderer::RayTracer::TraceRay(const Ray& ray)
 {
-	Payload payload;
-
 	if ( traceCount == MAX_TRACE ) {
 
-		// return an invalid payload
-		payload.valid = false;
-		return payload;
+		// if we are too deep in a recursion, fall
+		// back on the miss shader
+		return renderer->pMissShader(ray);
 	}
 
 	traceCount++;
-	payload = renderer->TraceRay(ray, *this);
+	Payload payload = renderer->TraceRay(ray, *this);
 	traceCount--;
 
 	return payload;
@@ -154,56 +141,9 @@ Payload Renderer::RayTracer::TraceRay(const Ray& ray)
 Payload Renderer::TraceRay(const Ray& ray, RayTracer& rayTracer)
 {
 
-	// only keeping track of the closest hit, so it is not possible
-	// to ignore hits
-	float minDist = MAX_DIST;
 	ModelDescriptor* closestHit = nullptr;
 	TriangleIntersection closestIntersection;
 
-#ifndef TREE
-	for ( ModelDescriptor& md : modelStorage ) {
-
-		if ( md.pIntersectBoundingVolume(md.thisPtr, ray) ) {
-
-			// loop through all triangles in the model
-			for ( int i = 0; i < md.nTriangles * 3; i += 3 ) {
-
-				// get the three positions of the vertices using a bunch of pointer trickery
-				Vec3* vertex1 = GET_POSITION(md.pIndices[i], md.pVertices, md.vertexSize, md.positionFloatOffset);
-				Vec3* vertex2 = GET_POSITION(md.pIndices[i + 1], md.pVertices, md.vertexSize, md.positionFloatOffset);
-				Vec3* vertex3 = GET_POSITION(md.pIndices[i + 2], md.pVertices, md.vertexSize, md.positionFloatOffset);
-
-				TriangleIntersection intersection;
-				if ( IntersectTriangle(ray, *vertex1, *vertex2, *vertex3, intersection) ) {
-
-					intersection.triangleIdx = i / 3;
-
-					// this is where the any hit shader would be run
-
-					if ( intersection.distance < minDist ) {
-
-						// found a new closest hit
-						minDist = intersection.distance;
-						closestHit = &md;
-						closestIntersection = intersection;
-
-					}
-				}
-			}
-		}
-	}
-
-	Payload payload;
-	if ( closestHit ) {
-		payload = closestHit->pClosestHitShader(closestHit->thisPtr, rayTracer, ray, closestIntersection);
-	}
-	else {
-		payload = pMissShader(ray);
-	}
-
-	return payload;
-
-#else
 	// run the closest hit shader of the nearest object
 	// if there is no nearest object, run the ray tracers miss shader
 
@@ -216,7 +156,6 @@ Payload Renderer::TraceRay(const Ray& ray, RayTracer& rayTracer)
 	}
 
 	return payload;
-#endif
 }
 
 Renderer::SceneOctTree::SceneOctTree()
@@ -316,11 +255,14 @@ void Renderer::SceneOctTree::AddModelToTree(Renderer::ModelDescriptor* model)
 
 		Triangle t = { v1, v2, v3 };
 
-		// would do backface culling here
+		if ( model->backfaceCull ) {
+			Vec3 norm = (v2 - v1) % (v3 - v1);
+			if ( norm * Vec3(0, 0, -1) >= 0 )
+				continue;
+		}
 
 		SceneOctTreeNode* box = FindBoxContainingTriangle(t);
-		if ( box )
-			box->trianglesInBox[model].push_back((std::make_tuple(i / 3, &v1, &v2, &v3)));
+		if ( box ) box->trianglesInBox[model].push_back((std::make_tuple(i / 3, &v1, &v2, &v3)));
 
 	}
 }
@@ -374,12 +316,12 @@ bool Renderer::SceneOctTree::SceneOctTreeNode::IntersectRay(const Ray& ray, Mode
 			}
 		}
 
-		if ( closestModel )
-			outModel = closestModel;
-		else
+		if ( !closestModel )
 			return false;
-
+			
+		outModel = closestModel;
 		outIntersection = closestIntersection;
+
 		return true;
 	}
 
@@ -403,10 +345,6 @@ bool Renderer::IntersectTriangle(const Ray& ray, const Vec3& v1, const Vec3& v2,
 	float triangleArea = norm.Length() / 2;
 	norm = norm.Normalized();
 
-	// the distance along the planes normal the triangle
-	// is from the origin
-	float d = norm * v1;
-
 	// if the ray is perpendicular to the normal,
 	// ignore this triangle
 	if ( norm * ray.direction == 0 )
@@ -414,7 +352,7 @@ bool Renderer::IntersectTriangle(const Ray& ray, const Vec3& v1, const Vec3& v2,
 
 	// the distance from the rays origin to its intersection
 	// with the plane
-	float t = (norm * ray.origin + d) / (norm * ray.direction);
+	float t = (v1 - ray.origin) * norm / (norm * ray.direction);
 
 	// if the triangle is behind or is the starting point of the ray, ignore it
 	if ( t < MIN_INTERSECTION_DISTANCE )
@@ -450,12 +388,10 @@ bool Renderer::IntersectTriangle(const Ray& ray, const Vec3& v1, const Vec3& v2,
 	float u = cp1.Length() / 2 / triangleArea;
 	float v = cp2.Length() / 2 / triangleArea;
 	
-	outIntersection.distance = t;
 	if ( norm * ray.direction > 0 )
-		outIntersection.fromBack = true;
-	else
-		outIntersection.fromBack = false;
+		return false;
 
+	outIntersection.distance = t;
 	outIntersection.u = u;
 	outIntersection.v = v;
 
