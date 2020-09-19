@@ -172,6 +172,7 @@
   <ItemGroup>
     <ClCompile Include="Images.cpp" />
     <ClCompile Include="Importing.cpp" />
+    <ClCompile Include="Lighting.cpp" />
     <ClCompile Include="Mat2.cpp" />
     <ClCompile Include="Mat3.cpp" />
     <ClCompile Include="Mat4.cpp" />
@@ -189,6 +190,7 @@
   <ItemGroup>
     <ClInclude Include="Images.h" />
     <ClInclude Include="Importing.h" />
+    <ClInclude Include="Lighting.h" />
     <ClInclude Include="Mat2.h" />
     <ClInclude Include="Mat3.h" />
     <ClInclude Include="Mat4.h" />

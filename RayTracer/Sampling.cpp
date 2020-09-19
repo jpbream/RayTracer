@@ -8,7 +8,19 @@ static enum Planes {
 	POSZ, NEGZ
 };
 
-Vec4 LinearSample(const Surface& texture, const Vec2& texel)
+inline void SymmetricNormalize(Vec4& v)
+{
+	v *= 2;
+	v -= Vec4(1, 1, 1, 1);
+}
+
+inline void AsymmetricNormalize(Vec4& v)
+{
+	v += Vec4(1, 1, 1, 1);
+	v /= 2;
+}
+
+inline static Vec4 LinearSample(const Surface& texture, const Vec2& texel)
 {
 
 	// enables texture tiling
@@ -19,7 +31,7 @@ Vec4 LinearSample(const Surface& texture, const Vec2& texel)
 	return texture.GetPixel((int)(s * (texture.GetWidth() - 1)), (int)(t * (texture.GetHeight() - 1)));
 }
 
-Vec4 BiLinearSample(const Surface& texture, const Vec2& texel)
+inline static Vec4 BiLinearSample(const Surface& texture, const Vec2& texel)
 {
 	// Equations for a Bi Linear Sample
 	// From Section 7.5.4, "Mathematics for 3D Game Programming and Computer Graphics", Lengyel
@@ -50,6 +62,18 @@ Vec4 BiLinearSample(const Surface& texture, const Vec2& texel)
 		c2 * alpha * (1 - beta) +
 		c3 * (1 - alpha) * beta +
 		c4 * alpha * beta;
+}
+
+Vec3 SampleNormalMap (const Surface& texture, const Vec2& texel)
+{
+	Vec4 sample = LinearSample(texture, texel);
+	SymmetricNormalize(sample);
+	return sample.Vec3();
+}
+
+Vec4 SampleTexture(const Surface& texture, const Vec2& texel)
+{
+	return LinearSample(texture, texel);
 }
 
 Vec4 SampleCubeMap(const Surface* planes, const Vec3& dir)

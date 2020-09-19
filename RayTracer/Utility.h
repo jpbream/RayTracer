@@ -215,7 +215,7 @@ void CalculateTangentsAndBitangents(
 	int numVertices,
 	Vertex* pVertices, 
 	int positionOffset, 
-	int normCoordOffset, 
+	int texCoordOffset, 
 	int normalOffset, 
 	int outputTangentOffset, 
 	int outputBitangentOffset
@@ -246,9 +246,9 @@ void CalculateTangentsAndBitangents(
 		const Vec3& p3 = *(Vec3*)((float*)&pVertices[idx3] + positionOffset);
 
 		// get normal map coords for this triangle from the vertices
-		const Vec2& t1 = *(Vec2*)((float*)&pVertices[idx1] + normCoordOffset);
-		const Vec2& t2 = *(Vec2*)((float*)&pVertices[idx2] + normCoordOffset);
-		const Vec2& t3 = *(Vec2*)((float*)&pVertices[idx3] + normCoordOffset);
+		const Vec2& t1 = *(Vec2*)((float*)&pVertices[idx1] + texCoordOffset);
+		const Vec2& t2 = *(Vec2*)((float*)&pVertices[idx2] + texCoordOffset);
+		const Vec2& t3 = *(Vec2*)((float*)&pVertices[idx3] + texCoordOffset);
 
 		// position and texture coord vectors of the sides of the triangle
 		Vec3 side1 = p2 - p1;

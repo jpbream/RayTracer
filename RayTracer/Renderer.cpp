@@ -31,9 +31,9 @@ void Renderer::AddModelToScene(void* modelThis, int nTriangles, int* pIndices, i
 	md.pBoundingVolumeTest = pBoundingVolumeTest;
 	md.backfaceCull = backfaceCull;
 
-	modelStorage.push_back(md);
+	modelStorage[numModels++] = md;
 
-	ModelDescriptor* model = &modelStorage[modelStorage.size() - 1];
+	ModelDescriptor* model = &modelStorage[numModels - 1];
 	octTree.AddModelToTree(model);
 }
 
@@ -50,6 +50,11 @@ void Renderer::RenderScene(Surface* pRenderTarget, RayGenerationShader pRayGen, 
 	this->pRenderTarget = pRenderTarget;
 
 	static int numThreads = (std::thread::hardware_concurrency() - 1);
+
+#ifdef NO_THREAD
+	numThreads = 1;
+#endif
+
 	int numPixels = pRenderTarget->GetWidth() * pRenderTarget->GetHeight();
 
 	int span = numThreads > 0 ? numPixels / numThreads : 0;
@@ -176,12 +181,12 @@ Payload Renderer::RayTracer::TraceRay(const Ray& ray)
 Payload Renderer::TraceRay(const Ray& ray, RayTracer& rayTracer)
 {
 
-	ModelDescriptor* closestHit = nullptr;
-	TriangleIntersection closestIntersection;
-
 #ifdef BOUNDING_BOX_TEST
 	bool foundHit = false;
-	for ( ModelDescriptor& model : modelStorage ) {
+	for ( int i = 0; i < numModels; ++i ) {
+
+		ModelDescriptor& model = modelStorage[i];
+
 		if ( model.pBoundingVolumeTest(model.thisPtr, ray) ) {
 			foundHit = true;
 			break;
@@ -193,6 +198,9 @@ Payload Renderer::TraceRay(const Ray& ray, RayTracer& rayTracer)
 
 	// run the closest hit shader of the nearest object
 	// if there is no nearest object, run the ray tracers miss shader
+
+	ModelDescriptor* closestHit = nullptr;
+	TriangleIntersection closestIntersection;
 
 	Payload payload;
 	if ( octTree.IntersectRayWithTree(ray, closestHit, closestIntersection) ) {
@@ -448,7 +456,7 @@ bool Renderer::IntersectTriangle(const Ray& ray, const Vec3& v1, const Vec3& v2,
 void Renderer::ClearScene()
 {
 	octTree.ClearTree();
-	modelStorage.clear();
+	numModels = 0;
 }
 void Renderer::SceneOctTree::ClearTree()
 {

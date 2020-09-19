@@ -9,6 +9,8 @@
 #define BOUNDING_BOX_TEST
 #define THREAD_SWITCHING
 
+#define MAX_MODELS 100
+
 class Payload;
 
 struct TriangleIntersection {
@@ -78,9 +80,9 @@ private:
 		static constexpr int DEPTH = 6;
 
 		class SceneOctTreeNode {
+		public:
 			typedef std::tuple<int, const Vec3*, const Vec3*, const Vec3*> TriangleDesc;
 
-		public:
 			SceneOctTreeNode* children[8];
 			Box box;
 
@@ -110,7 +112,8 @@ private:
 	};
 
 	SceneOctTree octTree;
-	std::vector<ModelDescriptor> modelStorage;
+	ModelDescriptor modelStorage[MAX_MODELS];
+	int numModels = 0;
 
 	struct WorkerRange {
 		volatile int start;
@@ -138,6 +141,7 @@ public:
 struct Payload {
 
 	Vec3 color;
+	bool intersected;
 
 };
 
